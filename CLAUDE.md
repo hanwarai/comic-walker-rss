@@ -32,7 +32,7 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 1. `feed.csv` から作品コード（`KC_XXXXXX_S` 形式）を読み込む
 2. `https://comic-walker.com/detail/{workCode}/` を GET し、`<script id="__NEXT_DATA__">` 内の JSON をパース
 3. JSON から作品情報（タイトル・あらすじ・サムネイル）と `firstEpisodes.result[]` を取り出す
-4. `isActive == True` のエピソードのみ Atom フィードに追加（無料公開期間内のもの）
+4. `isActive == True` のエピソードのみ Atom フィードに追加（無料公開期間内のもの）。`firstEpisodes` は昇順なので `reversed()` して新しい話が先頭に来るようにする
 5. Jinja2 テンプレート（`templates/index.html`）で `feeds/index.html` を生成
 
 **主要ファイル:**

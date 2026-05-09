@@ -99,6 +99,45 @@ def test_filters_inactive_episodes(
     ) in xml
 
 
+def test_emits_episodes_in_descending_order(
+    requests_mock: rm_module.Mocker, feeds_dir: Path
+) -> None:
+    """firstEpisodes は昇順で来るが、フィードは新しい話を先頭にする。"""
+    html = _detail_html(
+        episodes=[
+            {
+                "code": "KC_OLD_E",
+                "title": "第1話",
+                "subTitle": "",
+                "updateDate": "2022-04-27T02:00:00Z",
+                "isActive": True,
+            },
+            {
+                "code": "KC_MID_E",
+                "title": "第2話",
+                "subTitle": "",
+                "updateDate": "2023-11-09T02:00:00Z",
+                "isActive": True,
+            },
+            {
+                "code": "KC_NEW_E",
+                "title": "第3話",
+                "subTitle": "",
+                "updateDate": "2026-04-27T02:00:00Z",
+                "isActive": True,
+            },
+        ],
+    )
+    requests_mock.get(DETAIL_URL, text=html)
+
+    main.build_feed_for_work(main.create_session(), WORK_CODE)
+    xml = (feeds_dir / f"{WORK_CODE}.xml").read_text(encoding="utf-8")
+    pos_old = xml.index("KC_OLD_E")
+    pos_mid = xml.index("KC_MID_E")
+    pos_new = xml.index("KC_NEW_E")
+    assert pos_new < pos_mid < pos_old
+
+
 def test_returns_none_on_404(
     requests_mock: rm_module.Mocker, feeds_dir: Path
 ) -> None:

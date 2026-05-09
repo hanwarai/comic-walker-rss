@@ -162,8 +162,9 @@ def build_feed_for_work(
     first_episodes = work_data.get("firstEpisodes") or {}
     episodes = first_episodes.get("result", []) if isinstance(first_episodes, dict) else []
 
+    # firstEpisodes は昇順（第1話→最新）。RSS としては新しい話が先頭に来るように降順で出力する
     free_count = 0
-    for ep in episodes:
+    for ep in reversed(episodes):
         if not isinstance(ep, dict):
             continue
         parsed = parse_episode(work_code, ep)
