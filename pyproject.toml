@@ -5,7 +5,7 @@ description = "Atom RSS feed generator for ComicWalker free episodes"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "beautifulsoup4>=4.14.3",
+    "beautifulsoup4>=4.15.0",
     "feedgenerator>=2.2.1",
     "jinja2>=3.1.6",
     "requests>=2.34.2",
@@ -15,14 +15,14 @@ dependencies = [
 # uv 本体のバージョンピン。Dependabot (uv エコシステム) がこの行を bump し、
 # CI (.github/workflows/gh-pages.yaml) が setup-uv に渡す version をここから読む。
 # 既定グループではないため `uv sync` で venv にはインストールされない。
-ci = ["uv==0.11.15"]
+ci = ["uv==0.11.21"]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
+    "pytest>=9.1.0",
     "requests-mock>=1.12.1",
     "mypy>=2.1.0",
-    "types-requests>=2.33.0.20260513",
+    "types-requests>=2.33.0.20260518",
 ]
 
 [tool.pytest.ini_options]
