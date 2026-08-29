@@ -30,12 +30,8 @@ def test_skips_invalid_codes(tmp_path: Path, caplog: pytest.LogCaptureFixture) -
     assert any("invalid work code" in rec.message for rec in caplog.records)
 
 
-def test_deduplicates_repeated_codes(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    path = _write(
-        tmp_path, "KC_003921_S\nKC_000001_S\nKC_003921_S\nKC_000001_S\nKC_000002_S\n"
-    )
+def test_deduplicates_repeated_codes(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    path = _write(tmp_path, "KC_003921_S\nKC_000001_S\nKC_003921_S\nKC_000001_S\nKC_000002_S\n")
     with caplog.at_level("WARNING", logger="comic-walker-rss"):
         assert list(main.read_feed_ids(path)) == [
             "KC_003921_S",

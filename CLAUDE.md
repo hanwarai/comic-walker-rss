@@ -15,11 +15,18 @@ uv sync --all-extras
 # フィード生成
 uv run main.py
 
-# テスト実行（requests-mock で I/O モック）
+# テスト実行（requests-mock で I/O モック。カバレッジ 80% 未満で失敗）
 uv run pytest
 
-# 型検査（CI ゲート）
-uv run mypy main.py
+# lint / フォーマット（CI ゲート）
+uv run ruff check .
+uv run ruff format --check .
+
+# 型検査（CI ゲート。対象は pyproject の [tool.mypy] files に定義しているので引数は渡さない）
+uv run mypy
+
+# コミット時に上記をまとめて走らせる
+uv run pre-commit install
 ```
 
 ## Architecture
@@ -40,13 +47,27 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - `feed.csv` — トラッキング対象作品コードのリスト（1 列、`KC_XXXXXX_S` 形式）
 - `templates/index.html` — Jinja2 テンプレート（Bootstrap 5）
 - `feeds/` — 生成ファイル出力先（gitignore 済み、`.gitkeep` のみ管理）
+- `.pre-commit-config.yaml` — ruff / mypy は local hook として `uv run` 経由で呼ぶ。mirrors 版だと rev と uv.lock が独立に動いて結果がずれるため
 
 ## CI/CD
 
-GitHub Actions（`.github/workflows/gh-pages.yaml`）:
+**`ci.yaml`** — PR ゲート:
+- トリガー: `pull_request`
+- 処理: `uv sync --locked --all-extras` → `ruff check` → `ruff format --check` → `mypy` → `pytest`
+- main の branch protection が `check` ジョブを必須にしている（`enforce_admins: false` なのでオーナーの直接 push は従来どおり可能）。**ジョブ名 `check` を変えると必須チェックが報告されなくなる**
+- 実フェッチ（`uv run main.py`）は含めない。PR を comic-walker.com の可用性に依存させないため
+
+**`gh-pages.yaml`** — 公開:
 - トリガー: main へ push、12 時間ごとの schedule、`workflow_dispatch`
-- 処理: `uv sync` → `uv run mypy main.py` → `uv run pytest` → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
+- 処理: `uv sync --locked --all-extras` → `uv run mypy` → `uv run pytest` → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
 - scheduled run が失敗した場合、`notify-failure` ジョブが `ci-failure` ラベルで Issue を起票（既存 open Issue があればコメント追記）
+
+**`dependabot-auto-merge.yaml`** — dependabot PR の自動マージ:
+- non-major の更新のみ `gh pr merge --auto --squash` を有効化する。major を含むグループは手動レビューに残す
+- `pull_request_target` は write 権限つきトークンで動くため、PR のコードを checkout も実行もしない。検証は `ci.yaml` の責務
+- リポジトリ設定の Allow auto-merge が無効だと `--auto` は失敗するため、素の `gh pr merge` にフォールバックする（`--admin` を付けないので branch protection は効いたまま）
+
+**セットアップ手順の重複について**: `ci.yaml` と `gh-pages.yaml` の checkout〜`uv sync` は同一文字列に保つこと。dependabot の github-actions グループが両ファイルを 1 コミットで bump できるため。composite action への切り出しは、dependabot が `.github/actions/**` を走査するか未確認でピンが放置されうるので採らない。`--frozen` ではなく `--locked` を使うのは、lock と pyproject のずれを dependabot PR で検出するため
 
 ## Notes
 
