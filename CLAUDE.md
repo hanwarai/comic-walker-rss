@@ -47,7 +47,10 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - `feed.csv` — トラッキング対象作品コードのリスト（1 列、`KC_XXXXXX_S` 形式）
 - `templates/index.html` — Jinja2 テンプレート（Bootstrap 5）
 - `feeds/` — 生成ファイル出力先（gitignore 済み、`.gitkeep` のみ管理）
+- `tests/` — pytest。HTTP は `requests-mock` でモックし、実ページのスナップショットは `tests/fixtures/*.html` に置く
 - `.pre-commit-config.yaml` — ruff / mypy は local hook として `uv run` 経由で呼ぶ。mirrors 版だと rev と uv.lock が独立に動いて結果がずれるため
+- `.github/dependabot.yaml` — github-actions / uv / pre-commit の 3 エコシステムを weekly で追跡
+- `README.md` — 人間向け。`pyproject.readme` がこのファイルを指しているので消さない
 
 ## CI/CD
 
@@ -71,6 +74,13 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 
 **セットアップ手順の重複について**: `ci.yaml` と `gh-pages.yaml` の checkout〜`uv sync` は同一文字列に保つこと。dependabot の github-actions グループが両ファイルを 1 コミットで bump できるため。composite action への切り出しは、dependabot が `.github/actions/**` を走査するか未確認でピンが放置されうるので採らない。`--frozen` ではなく `--locked` を使うのは、lock と pyproject のずれを dependabot PR で検出するため
 
+## 開発フロー
+
+- **変更は原則 PR 経由**。`ci.yaml` の `check` が必須チェックなので、PR を出せば lint / フォーマット / 型検査 / テストが自動で回る。`enforce_admins: false` なのでオーナーは main へ直接 push もできる（ドキュメントや `feed.csv` の 1 行追加程度ならその運用でよい）
+- **dependabot PR にローカル検証は不要**。以前は PR で CI が走らなかったため手元で CI 相当を再現していたが、現在は `check` が PR 上で走り、non-major はそのまま自動マージされる。人間が見るのは major を含むグループ PR だけ
+- **`pyproject.toml` を編集したら必ず `uv lock` を実行して `uv.lock` も一緒にコミットする**。CI は `uv sync --locked` なので、ロックがずれているとインストール段階で落ちる
+- `gh-pages.yaml` 自体を変更する PR は、その変更が実際に動くかを PR 上で検証できない（`ci.yaml` は別ファイル）。マージ後の push 実行を必ず確認する
+
 ## Notes
 
 - パッケージマネージャーは `uv`（`pip` は使わない）
@@ -85,3 +95,6 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - `firstEpisodes` と `latestEpisodes` は同じ全エピソード集合（並び順だけ違う）。本ジェネレータは `firstEpisodes` を使う
 - `isActive: True` = 現在無料で読める / `False` = 無料公開期間が終了し有料のみ。`deliveryPeriod` は無料期間の終了時刻（`9999-12-31T14:59:59Z` は恒久無料）
 - WAF/Bot 対策は現状なし。User-Agent を付ければ素の `requests` で取得可能
+- **`.py` の中の日本語コメント・docstring では全角括弧（）を使わない**。ruff の RUF002 / RUF003 が「紛らわしい Unicode」として弾く。半角 () を使うこと（本ファイルのような Markdown は lint 対象外なので全角のままでよい）
+- `uv run pytest` は dev extras（`pytest-cov`）が入っていないと `addopts` の `--cov-fail-under` で失敗する。`uv sync --all-extras` 済みの環境で実行すること
+- テストの fixture HTML は `end-of-file-fixer` hook の対象。pre-commit が末尾改行を足すことがあるが、パース結果には影響しない
