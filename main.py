@@ -1,4 +1,4 @@
-"""ComicWalker（comic-walker.com）の無料エピソードを取得する Atom RSS ジェネレータ。"""
+"""ComicWalker (comic-walker.com) の無料エピソードを取得する Atom RSS ジェネレータ。"""
 
 from __future__ import annotations
 
@@ -77,11 +77,7 @@ def find_work_data(next_data: dict[str, Any]) -> dict[str, Any] | None:
     )
     for query in queries:
         key = query.get("queryKey")
-        if (
-            isinstance(key, list)
-            and key
-            and key[0] == "/api/contents/details/work"
-        ):
+        if isinstance(key, list) and key and key[0] == "/api/contents/details/work":
             data = query.get("state", {}).get("data")
             if isinstance(data, dict):
                 return data
@@ -89,7 +85,10 @@ def find_work_data(next_data: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def parse_episode(work_code: str, episode: dict[str, Any]) -> dict[str, Any] | None:
-    """1 エピソード分の dict を整形。無料公開外（`isActive == False`）と販促 (`type == "pr"`) は捨てる。"""
+    """1 エピソード分の dict を整形。
+
+    無料公開外 (`isActive == False`) と販促 (`type == "pr"`) は捨てる。
+    """
     if not episode.get("isActive"):
         return None
     if episode.get("type") == "pr":
@@ -111,16 +110,12 @@ def parse_episode(work_code: str, episode: dict[str, Any]) -> dict[str, Any] | N
     return {
         "unique_id": str(code),
         "title": full_title,
-        "link": EPISODE_URL_TEMPLATE.format(
-            work_code=work_code, episode_code=code
-        ),
+        "link": EPISODE_URL_TEMPLATE.format(work_code=work_code, episode_code=code),
         "pubdate": pubdate,
     }
 
 
-def build_feed_for_work(
-    session: requests.Session, work_code: str
-) -> dict[str, str] | None:
+def build_feed_for_work(session: requests.Session, work_code: str) -> dict[str, str] | None:
     detail_url = DETAIL_URL_TEMPLATE.format(work_code=work_code)
     logger.info("%s %s", work_code, detail_url)
 
@@ -162,7 +157,7 @@ def build_feed_for_work(
     first_episodes = work_data.get("firstEpisodes") or {}
     episodes = first_episodes.get("result", []) if isinstance(first_episodes, dict) else []
 
-    # firstEpisodes は昇順（第1話→最新）。RSS としては新しい話が先頭に来るように降順で出力する
+    # firstEpisodes は昇順 (第1話→最新)。RSS としては新しい話が先頭に来るように降順で出力する
     free_count = 0
     for ep in reversed(episodes):
         if not isinstance(ep, dict):

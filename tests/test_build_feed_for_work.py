@@ -1,4 +1,4 @@
-"""build_feed_for_work のエンドツーエンド（HTTP モック）テスト。"""
+"""build_feed_for_work のエンドツーエンド (HTTP モック) テスト。"""
 
 import json
 from pathlib import Path
@@ -7,7 +7,6 @@ import pytest
 import requests_mock as rm_module
 
 import main
-
 
 WORK_CODE = "KC_003921_S"
 DETAIL_URL = main.DETAIL_URL_TEMPLATE.format(work_code=WORK_CODE)
@@ -51,9 +50,9 @@ def _detail_html(
     }
     payload = json.dumps(next_data, ensure_ascii=False)
     return (
-        '<!doctype html><html><body>'
+        "<!doctype html><html><body>"
         f'<script id="__NEXT_DATA__" type="application/json">{payload}</script>'
-        '</body></html>'
+        "</body></html>"
     )
 
 
@@ -63,9 +62,7 @@ def feeds_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def test_filters_inactive_episodes(
-    requests_mock: rm_module.Mocker, feeds_dir: Path
-) -> None:
+def test_filters_inactive_episodes(requests_mock: rm_module.Mocker, feeds_dir: Path) -> None:
     html = _detail_html(
         title="魔術師クノンは見えている",
         episodes=[
@@ -138,31 +135,23 @@ def test_emits_episodes_in_descending_order(
     assert pos_new < pos_mid < pos_old
 
 
-def test_returns_none_on_404(
-    requests_mock: rm_module.Mocker, feeds_dir: Path
-) -> None:
+def test_returns_none_on_404(requests_mock: rm_module.Mocker, feeds_dir: Path) -> None:
     requests_mock.get(DETAIL_URL, status_code=404)
     assert main.build_feed_for_work(main.create_session(), WORK_CODE) is None
     assert not (feeds_dir / f"{WORK_CODE}.xml").exists()
 
 
-def test_returns_none_without_next_data(
-    requests_mock: rm_module.Mocker, feeds_dir: Path
-) -> None:
+def test_returns_none_without_next_data(requests_mock: rm_module.Mocker, feeds_dir: Path) -> None:
     requests_mock.get(DETAIL_URL, text="<html><body>nope</body></html>")
     assert main.build_feed_for_work(main.create_session(), WORK_CODE) is None
 
 
-def test_returns_none_without_work_query(
-    requests_mock: rm_module.Mocker, feeds_dir: Path
-) -> None:
-    payload = json.dumps(
-        {"props": {"pageProps": {"dehydratedState": {"queries": []}}}}
-    )
+def test_returns_none_without_work_query(requests_mock: rm_module.Mocker, feeds_dir: Path) -> None:
+    payload = json.dumps({"props": {"pageProps": {"dehydratedState": {"queries": []}}}})
     html = (
-        '<html><body>'
+        "<html><body>"
         f'<script id="__NEXT_DATA__" type="application/json">{payload}</script>'
-        '</body></html>'
+        "</body></html>"
     )
     requests_mock.get(DETAIL_URL, text=html)
     assert main.build_feed_for_work(main.create_session(), WORK_CODE) is None

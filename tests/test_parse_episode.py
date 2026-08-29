@@ -1,9 +1,8 @@
 """parse_episode のフィルタリング仕様テスト。"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import main
-
 
 WORK_CODE = "KC_003921_S"
 
@@ -47,7 +46,7 @@ def test_parses_active_free_episode() -> None:
         "https://comic-walker.com/detail/KC_003921_S/episodes/"
         "KC_0039210000100011_E?episodeType=first"
     )
-    assert parsed["pubdate"] == datetime(2022, 4, 27, 2, 0, 0, tzinfo=timezone.utc)
+    assert parsed["pubdate"] == datetime(2022, 4, 27, 2, 0, 0, tzinfo=UTC)
 
 
 def test_appends_subtitle_when_present() -> None:
