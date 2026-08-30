@@ -40,7 +40,8 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 2. `https://comic-walker.com/detail/{workCode}/` を GET し、`<script id="__NEXT_DATA__">` 内の JSON をパース
 3. JSON から作品情報（タイトル・あらすじ・サムネイル）と `firstEpisodes.result[]` を取り出す
 4. `isActive == True` のエピソードのみ Atom フィードに追加（無料公開期間内のもの）。`firstEpisodes` は昇順なので `reversed()` して新しい話が先頭に来るようにする
-5. Jinja2 テンプレート（`templates/index.html`）で `feeds/index.html` を生成
+5. 今回取得できなかった作品は `read_existing_feed_title()` が seed 済みの `feeds/{workCode}.xml` から作品名を読み戻し、index に残す（seed も取得も無い場合だけ index から落とす）
+6. Jinja2 テンプレート（`templates/index.html`）で `feeds/index.html` を生成
 
 **主要ファイル:**
 - `main.py` — 全処理ロジック
@@ -63,7 +64,8 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 
 **`gh-pages.yaml`** — 公開:
 - トリガー: main へ push、12 時間ごとの schedule、`workflow_dispatch`
-- 処理: `uv sync --locked --all-extras` → `uv run mypy` → `uv run pytest` → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
+- 処理: `uv sync --locked --all-extras` → `uv run mypy` → `uv run pytest` → **公開中の `feeds/*.xml` を curl で seed** → `uv run main.py` → `feeds/` を GitHub Pages にデプロイ
+- seed が必要な理由: `feeds/` は `.gitkeep` しか追跡していないので checkout 直後は空。取得に失敗した作品はその回の `main.py` が XML を書けず、seed が無いとデプロイから丸ごと落ちて `{workCode}.xml` が 404 になる（購読者に影響し、復旧は次の成功実行まで最大 12 時間）。seed 対象は `feed.csv` の作品コードに限る — 公開中のファイルをグロブで拾うと `feed.csv` から消した作品が復活してしまう
 - scheduled run が失敗した場合、`notify-failure` ジョブが `ci-failure` ラベルで Issue を起票（既存 open Issue があればコメント追記）
 
 **`dependabot-auto-merge.yaml`** — dependabot PR の自動マージ:
