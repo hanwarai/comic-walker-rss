@@ -51,7 +51,6 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - `tests/` — pytest。HTTP は `requests-mock` でモックし、実ページのスナップショットは `tests/fixtures/*.html` に置く
 - `.pre-commit-config.yaml` — ruff / mypy は local hook として `uv run` 経由で呼ぶ。mirrors 版だと rev と uv.lock が独立に動いて結果がずれるため
 - `.github/dependabot.yaml` — github-actions / uv / pre-commit の 3 エコシステムを weekly で追跡
-- `README.md` — 人間向け。`pyproject.readme` がこのファイルを指しているので消さない
 
 ## CI/CD
 
