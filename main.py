@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import feedgenerator
 import requests
@@ -19,6 +20,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger("comic-walker-rss")
+
+ATOM_NS = "http://www.w3.org/2005/Atom"
 
 BASE_URL = "https://comic-walker.com"
 DETAIL_URL_TEMPLATE = f"{BASE_URL}/detail/{{work_code}}/"
@@ -203,6 +206,27 @@ def read_feed_ids(path: Path) -> Iterator[str]:
             yield work_code
 
 
+def read_existing_feed_title(work_code: str) -> str | None:
+    """既存の feeds/{work_code}.xml から作品名を読む。
+
+    今回の実行で取得に失敗した作品を index から落とさないための復旧経路。
+    CI では feeds/ は .gitkeep しか無い状態から始まるので、gh-pages.yaml が
+    公開中のフィードを seed してからここに来る。
+    """
+    path = FEEDS_DIR / f"{work_code}.xml"
+    if not path.exists():
+        return None
+    try:
+        root = ElementTree.parse(path).getroot()
+    except ElementTree.ParseError:
+        logger.warning("could not parse existing feed for %s", work_code)
+        return None
+    node = root.find(f"{{{ATOM_NS}}}title")
+    if node is None or not node.text:
+        return None
+    return node.text
+
+
 def render_index(feeds: list[dict[str, str]]) -> None:
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
     template = env.get_template("index.html")
@@ -213,16 +237,28 @@ def render_index(feeds: list[dict[str, str]]) -> None:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     session = create_session()
-    rendered: list[dict[str, str]] = []
+    work_codes: list[str] = []
+    parsed: dict[str, str] = {}
     for work_code in read_feed_ids(FEED_LIST_PATH):
+        work_codes.append(work_code)
         try:
             result = build_feed_for_work(session, work_code)
         except Exception:
             logger.exception("failed to build feed for %s", work_code)
             continue
         if result:
-            rendered.append(result)
-    render_index(rendered)
+            parsed[work_code] = result["title"]
+
+    # 今回取得できなかった作品も、seed された前回デプロイ分の XML があれば
+    # そこから作品名を復元して index に残す。順序は feed.csv に従う。
+    feeds: list[dict[str, str]] = []
+    for work_code in work_codes:
+        title = parsed.get(work_code) or read_existing_feed_title(work_code)
+        if title is None:
+            logger.warning("no feed for %s, omitting from index", work_code)
+            continue
+        feeds.append({"id": work_code, "title": title})
+    render_index(feeds)
 
 
 if __name__ == "__main__":
