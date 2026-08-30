@@ -76,7 +76,7 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - `--auto` 経路（check が pending のうちに auto-merge を有効化し、green になった時点で GitHub が代行マージ）自体は正常に機能する。2026-08-30 に本リポジトリで実測確認済み。**起動しないのは github-actions[bot] 名義でマージされたときだけ**で、人間のトークンで auto-merge を有効化した場合はマージもその人間名義になるため `gh-pages.yaml` は通常どおり起動する
 - 上記の遅延は**受容する方針**（2026-08-30 決定）。フィード内容は実行のたびにライブ取得するので鮮度には影響せず、12 時間ごとの schedule が最大 12 時間以内にデプロイを追いつかせる。依存 bump が `gh-pages.yaml` 固有の部分（`uv run main.py` の実フェッチ、`upload-pages-artifact` / `deploy-pages`）を壊した場合も、schedule 実行の失敗を `notify-failure` が Issue として起票する。即時デプロイが必要になったら PAT / GitHub App トークンへの切り替えか、github-actions グループを auto-merge 対象から外す運用に変える
 
-**セットアップ手順の重複について**: `ci.yaml` と `gh-pages.yaml` の checkout〜`uv sync` は同一文字列に保つこと。dependabot の github-actions グループが両ファイルを 1 コミットで bump できるため。composite action への切り出しは、dependabot が `.github/actions/**` を走査するか未確認でピンが放置されうるので採らない。`--frozen` ではなく `--locked` を使うのは、lock と pyproject のずれを dependabot PR で検出するため
+**セットアップ手順の重複について**: uv ピンの読み取りロジックは `.github/scripts/resolve-uv-version.sh` に切り出して `ci.yaml` と `gh-pages.yaml` で共有する（仕様は `tests/test_resolve_uv_version.py` が固定。`grep -P` は GNU 限定で macOS では動かないため POSIX sed で実装してある）。一方 **`uses:` の行（checkout / setup-uv / setup-python）は両ファイルに重複させたまま**にすること。dependabot の github-actions エコシステムは `.github/workflows/` とリポジトリルートの `action.yml` しか走査しないため、composite action へ切り出すとバージョン追跡から外れる（dependabot-core#9788）。`--frozen` ではなく `--locked` を使うのは、lock と pyproject のずれを dependabot PR で検出するため
 
 ## 開発フロー
 
