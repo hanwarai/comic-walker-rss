@@ -56,8 +56,9 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 
 **`ci.yaml`** — PR ゲート:
 - トリガー: `pull_request`
-- 処理: `uv sync --locked --all-extras` → **actionlint** → `ruff check` → `ruff format --check` → `mypy` → `pytest`
+- 処理: `uv sync --locked --all-extras` → **actionlint** → **潰れた式の guard** → `ruff check` → `ruff format --check` → `mypy` → `pytest`
 - actionlint（ワークフロー定義の lint）は `raven-actions/actionlint` を SHA ピン + バージョンコメントで使う。actionlint 本体のバージョンは action 既定の `latest` に任せる — ここを固定すると Dependabot が追えないピンになり黙って腐るため。pre-commit hook にはしない（Go か Docker がローカルに必要になるので CI 限定にしている）
+- **潰れた式の guard**（actionlint の直後）は、二重波括弧が一重に潰れた式を grep で弾く。`${ github.x }` / `${github.x}` は YAML としてもワークフロー定義としても妥当な**ただの文字列**なので actionlint も `yaml.safe_load` も警告を出さず、CI が green のまま壊れる。2026-09-04 に 6 リポジトリの `dependabot-auto-merge.yaml` がこれで壊れ、`PR_URL` / `GH_TOKEN` がリテラルのまま渡って Dependabot PR が約 5 日滞留した。シェル変数の展開は波括弧の直後に空白を置かず変数名にドットや括弧も含まないため、`${VAR}` や `${err:-default}` は誤検知しない
 - main の branch protection が `check` ジョブを必須にしている（`enforce_admins: false` なのでオーナーの直接 push は従来どおり可能）。**ジョブ名 `check` を変えると必須チェックが報告されなくなる**
 - 実フェッチ（`uv run main.py`）は含めない。PR を comic-walker.com の可用性に依存させないため
 
