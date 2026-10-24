@@ -40,8 +40,11 @@ for r in "${REPOS[@]}"; do
     --jq '.workflows[] | select(.path | test("pages|deploy")) | .path' | head -1)
 
   if [ -n "$deploy_wf" ]; then
+    # 実行中の run は conclusion が空で返る。そのまま出すと success と見分けが付かず
+    # 「異常なし」に混ざるので、明示的に running と出して判定からも外す
     deploy=$(gh run list --repo "$OWNER/$r" --workflow "${deploy_wf##*/}" --limit 1 \
-      --json conclusion,createdAt --jq '.[0] | "\(.conclusion) \(.createdAt[0:10])"')
+      --json conclusion,createdAt,status \
+      --jq '.[0] | "\(if .conclusion == "" or .conclusion == null then "running(\(.status))" else .conclusion end) \(.createdAt[0:10])"')
   else
     deploy="(no workflow)"
   fi
