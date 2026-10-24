@@ -27,6 +27,10 @@ uv run mypy
 
 # コミット時に上記をまとめて走らせる
 uv run pre-commit install
+
+# 姉妹 RSS リポ（本リポと同じ構成の hanwarai/*-rss）の稼働を一括点検する。
+# 配信ワークフロー / dependabot auto-merge の直近 conclusion と、滞留している PR・Issue を出す
+tools/fleet-health.sh
 ```
 
 ## Architecture
