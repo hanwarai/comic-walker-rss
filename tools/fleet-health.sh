@@ -46,10 +46,12 @@ for r in "${REPOS[@]}"; do
     deploy="(no workflow)"
   fi
 
-  # skipped は dependabot 以外の PR で if 条件を外した run。判定が出た最後の run を見たいので除く
+  # skipped は dependabot 以外の PR で if 条件を外した run。判定が出た最後の run を見たい。
+  # cancelled も除く: saitama-culture-rss は concurrency に cancel-in-progress を付けており、
+  # Dependabot の rebase で古い run が畳まれるのは正常系なので、異常として数えてはいけない
   am=$(gh run list --repo "$OWNER/$r" --workflow dependabot-auto-merge.yaml --limit 20 \
     --json conclusion,createdAt \
-    --jq '[.[] | select(.conclusion != "skipped")][0] // {} | "\(.conclusion // "(none)") \(.createdAt[0:10] // "-")"')
+    --jq '[.[] | select(.conclusion != "skipped" and .conclusion != "cancelled")][0] // {} | "\(.conclusion // "(none)") \(.createdAt[0:10] // "-")"')
 
   pr=$(printf '%s' "$open_prs" | jq -r --arg r "$r" '.[$r] // 0')
   issue=$(printf '%s' "$open_issues" | jq -r --arg r "$r" '.[$r] // 0')
