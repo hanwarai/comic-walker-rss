@@ -73,7 +73,7 @@ feed.csv → main.py → feeds/*.xml + feeds/index.html → GitHub Pages
 - scheduled run が失敗した場合、`notify-failure` ジョブが `ci-failure` ラベルで Issue を起票（既存 open Issue があればコメント追記）
 
 **`dependabot-auto-merge.yaml`** — dependabot PR の自動マージ:
-- non-major の更新のみ `gh pr merge --auto --squash` を有効化する。major を含むグループは手動レビューに残す
+- non-major の更新のみ `gh pr merge --auto --squash` を有効化する。major を含むグループは手動レビューに残す。例外は `certifi` / `tzdata` で、日付バージョニングのため年をまたぐ更新が major に分類されるので、`dependency-names` が完全一致なら major でも自動マージする
 - `pull_request_target` は write 権限つきトークンで動くため、PR のコードを checkout も実行もしない。検証は `ci.yaml` の責務
 - リポジトリ設定の Allow auto-merge が無効だと `--auto` は失敗するため、素の `gh pr merge` にフォールバックする（`--admin` を付けないので branch protection は効いたまま）。2026-08-30 に `allow_auto_merge` / `delete_branch_on_merge` を有効化済み
 - **auto-merge されたコミットは `gh-pages.yaml` を起動しない**。`GITHUB_TOKEN` が起こしたイベントは新しい workflow run を作らないという GitHub の仕様による（例外は `workflow_dispatch` と `repository_dispatch` のみ）。`--auto` で GitHub が後から代行するマージも、有効化したアクターが github-actions[bot] なので同じく抑止される。comic-walker-rss `89f82b8` と manga-one-rss `59fc518` の双方で実測確認済み
