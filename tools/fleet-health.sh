@@ -35,25 +35,26 @@ count() { # grep がヒット 0 で exit 1 を返すのを set -e に拾わせ�
 probe_feed() {
   local r="$1" body n p
   body=$(mktemp)
-  if curl -sfS --max-time 30 -o "$body" "https://$OWNER.github.io/$r/index.html" 2>/dev/null; then
-    n=$(count '\.xml' "$body")
-    if [ "$n" -gt 0 ]; then
+  get() { curl -sfS --retry 3 --retry-delay 2 --retry-all-errors --max-time 40 -o "$body" "$1" 2>/dev/null; }
+
+  # 単一フィード型を先に見る。free-only-rss の index.html は rss.xml への静的リンクを
+  # 1 本持つだけなので、index から数えると中身が空でも link=1 で緑に見える
+  for p in feed.xml rss.xml; do
+    if get "https://$OWNER.github.io/$r/$p"; then
+      n=$(count '<entry' "$body")
       rm -f "$body"
-      printf 'link=%s' "$n"
+      [ "$n" -gt 0 ] && printf 'entry=%s' "$n" || printf '空'
       return
     fi
-  fi
-  # index.html を持たない単一フィード型 (saitama-culture / saitama-np) はフィード本体を見る
-  for p in feed.xml rss.xml; do
-    if curl -sfS --max-time 30 -o "$body" "https://$OWNER.github.io/$r/$p" 2>/dev/null; then
-      n=$(count '<entry' "$body")
-      if [ "$n" -gt 0 ]; then
-        rm -f "$body"
-        printf 'entry=%s' "$n"
-        return
-      fi
-    fi
   done
+  # 本リポは公開中のフィードを seed するので、全件取得失敗でも link 数は落ちない。
+  # ここは他 10 リポ用の網で、本リポの取得断は run のログ側で見ること
+  if get "https://$OWNER.github.io/$r/index.html"; then
+    n=$(count '\.xml' "$body")
+    rm -f "$body"
+    [ "$n" -gt 0 ] && printf 'link=%s' "$n" || printf '空'
+    return
+  fi
   rm -f "$body"
   printf '空'
 }
