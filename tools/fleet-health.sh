@@ -2,7 +2,7 @@
 # hanwarai の RSS ジェネレーター群 (本リポと同じ構成の姉妹リポ) の稼働状況を 1 画面で出す。
 #
 # 見るもの: 配信ワークフローの直近 conclusion / dependabot auto-merge の直近 conclusion /
-#           open PR 数 / open issue 数。異常が 1 つでもあれば exit 1。
+#           配信物に購読できる中身があるか / open PR 数 / open issue 数。異常が 1 つでもあれば exit 1。
 #
 # 対象リポを決め打ちせず gh repo list から引くのは、リポが増減しても台本が腐らないようにするため。
 # archived を除くのは urasunday-rss が意図的にアーカイブ済みで fleet 外だから。
@@ -25,14 +25,41 @@ if [ ${#REPOS[@]} -eq 0 ]; then
   exit 1
 fi
 
-# PR と issue はリポごとに問い合わせると往復が増えるので、owner 横断の search で一度に引いて数える
-open_prs=$(gh search prs --owner "$OWNER" --state open --limit 100 --json repository \
-  --jq 'group_by(.repository.name) | map({(.[0].repository.name): length}) | add // {}')
-open_issues=$(gh search issues --owner "$OWNER" --state open --limit 100 --json repository \
-  --jq 'group_by(.repository.name) | map({(.[0].repository.name): length}) | add // {}')
+count() { # grep がヒット 0 で exit 1 を返すのを set -e に拾わせない
+  { grep -o "$1" "$2" || true; } | wc -l | tr -d ' '
+}
+
+# 配信されている成果物を直接見る。run の conclusion は success でも中身が空になりうる
+# (2026-10-23 に bigcomics-rss の上流が Actions の IP を 403 で弾き始めたが、main.py が
+#  警告だけ出して exit 0 したため、空の index が 1 か月配信され、この台本は緑を出し続けた)
+probe_feed() {
+  local r="$1" body n p
+  body=$(mktemp)
+  if curl -sfS --max-time 30 -o "$body" "https://$OWNER.github.io/$r/index.html" 2>/dev/null; then
+    n=$(count '\.xml' "$body")
+    if [ "$n" -gt 0 ]; then
+      rm -f "$body"
+      printf 'link=%s' "$n"
+      return
+    fi
+  fi
+  # index.html を持たない単一フィード型 (saitama-culture / saitama-np) はフィード本体を見る
+  for p in feed.xml rss.xml; do
+    if curl -sfS --max-time 30 -o "$body" "https://$OWNER.github.io/$r/$p" 2>/dev/null; then
+      n=$(count '<entry' "$body")
+      if [ "$n" -gt 0 ]; then
+        rm -f "$body"
+        printf 'entry=%s' "$n"
+        return
+      fi
+    fi
+  done
+  rm -f "$body"
+  printf '空'
+}
 
 problems=0
-printf '%-22s %-20s %-20s %6s %6s\n' REPO DEPLOY AUTO-MERGE PR ISSUE
+printf '%-22s %-20s %-20s %-10s %6s %6s\n' REPO DEPLOY AUTO-MERGE FEED PR ISSUE
 
 for r in "${REPOS[@]}"; do
   # 配信ワークフローのファイル名はリポによって揺れる (gh-pages.yaml 以外もありうる) ので名前で引く
@@ -56,20 +83,25 @@ for r in "${REPOS[@]}"; do
     --json conclusion,createdAt \
     --jq '[.[] | select(.conclusion != "skipped" and .conclusion != "cancelled")][0] // {} | "\(.conclusion // "(none)") \(.createdAt[0:10] // "-")"')
 
-  pr=$(printf '%s' "$open_prs" | jq -r --arg r "$r" '.[$r] // 0')
-  issue=$(printf '%s' "$open_issues" | jq -r --arg r "$r" '.[$r] // 0')
+  feed=$(probe_feed "$r")
 
-  printf '%-22s %-20s %-20s %6s %6s\n' "$r" "$deploy" "$am" "$pr" "$issue"
+  # owner 横断の gh search は 100 件で打ち切られる。fleet 外のリポに滞留が溜まると
+  # fleet の PR が押し出されて 0 件に見えるので、リポごとに数える
+  pr=$(gh pr list --repo "$OWNER/$r" --state open --json number --jq 'length')
+  issue=$(gh issue list --repo "$OWNER/$r" --state open --json number --jq 'length')
+
+  printf '%-22s %-20s %-20s %-10s %6s %6s\n' "$r" "$deploy" "$am" "$feed" "$pr" "$issue"
 
   case "$deploy $am" in
     *failure* | *cancelled* | *timed_out* | *"(none)"* | *"(no workflow)"*) problems=$((problems + 1)) ;;
   esac
+  [ "$feed" != "空" ] || problems=$((problems + 1))
   [ "$pr" -eq 0 ] && [ "$issue" -eq 0 ] || problems=$((problems + 1))
 done
 
 echo
 if [ "$problems" -eq 0 ]; then
-  echo "OK: ${#REPOS[@]} リポすべて正常 (配信 success / auto-merge success / 滞留なし)"
+  echo "OK: ${#REPOS[@]} リポすべて正常 (配信 success / auto-merge success / フィード非空 / 滞留なし)"
 else
   echo "要確認: $problems 件" >&2
   exit 1
